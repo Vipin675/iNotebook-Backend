@@ -21,15 +21,18 @@ router.post(
     // express validators
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     try {
       let user = await User.findOne({ email: req.body.email });
       if (user) {
-        return res.status(400).json({
-          message: "User with this email is already exists",
-        });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "User with this email is already exists",
+          });
       }
 
       const salt = await bcrypt.genSalt(10);
@@ -48,6 +51,7 @@ router.post(
       const authToken = jwt.sign(data, JWT_TOKEN);
 
       res.json({
+        success: true,
         message: "User created",
         authToken,
         user,
@@ -77,11 +81,15 @@ router.post(
     try {
       let user = await User.findOne({ email });
       if (!user) {
-        return res.status(400).json({ error: "Incorrect email or password" });
+        return res
+          .status(400)
+          .json({ success: false, error: "Incorrect email or password" });
       }
       const isPasswordMatch = await bcrypt.compare(password, user.password);
       if (!isPasswordMatch) {
-        return res.status(400).json({ error: "Incorrect email or password" });
+        return res
+          .status(400)
+          .json({ success: false, error: "Incorrect email or password" });
       }
       //creating token
       const data = {
@@ -89,6 +97,7 @@ router.post(
       };
       const authToken = jwt.sign(data, JWT_TOKEN);
       res.json({
+        success: true,
         message: `Welcome ${user.name}`,
         authToken,
         user,
