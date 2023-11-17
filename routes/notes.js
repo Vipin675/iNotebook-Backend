@@ -3,19 +3,55 @@ const express = require("express");
 const router = express.Router();
 const fetchUser = require("../middleware/fetchUser");
 const Note = require("../model/Notes");
+const User = require("../model/User");
 const { body, validationResult } = require("express-validator");
 
-// GET ALL NOTE OF USER.ID (where user.id from the middleware fetchUser.js)
-// at http://localhost:5000/api/notes/fetch-all-notes
-
-router.get("/fetch-all-notes", fetchUser, async (req, res) => {
+router.get("/fetch-global-public-notes", async (req, res) => {
   try {
-    const notes = await Note.find({ user: req.user.id });
+    const notes = await Note.find({ visibility: "public" });
     res.json(notes);
   } catch (error) {
     res.json({
       error: error.message,
     });
+  }
+});
+
+// GET ALL NOTE OF USER.ID (where user.id from the middleware fetchUser.js)
+// at http://localhost:5000/api/notes/fetch-all-notes
+router.get("/fetch-all-notes", fetchUser, async (req, res) => {
+  try {
+    const notes = await Note.find({ user: req.user.id });
+    const me = await User.findById(req.user.id);
+    const sharedNotes = await Note.find({
+      visibility: "shared",
+      sharedWith: { $in: me.email },
+    });
+    res.json([...notes, ...sharedNotes]);
+  } catch (error) {
+    res.json({
+      error: error.message,
+    });
+  }
+});
+
+router.get("/note/:id", async (req, res) => {
+  try {
+    // Find current note by id
+    // checking on note with req.params.id is available
+    let note = await Note.findById(req.params.id);
+    if (!note) {
+      return res.status(404).send("Not found");
+    }
+    const me = await User.findById(note.user);
+    res.send({
+      note,
+      createrName: me.name,
+      createrEmail: me.email,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send("Internal Server error");
   }
 });
 
@@ -34,13 +70,15 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, tag } = req.body;
+    const { title, description, tag, visibility, selectedUser } = req.body;
     try {
       const note = await Note.create({
         title,
         description,
         tag,
         user: req.user.id,
+        visibility: visibility,
+        sharedWith: selectedUser,
       });
       res.json({ note });
     } catch (error) {
@@ -66,7 +104,7 @@ router.put(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, tag } = req.body;
+    const { title, description, tag, visibility, selectedUser } = req.body;
     try {
       // getting all the updated value
       const newNote = {};
@@ -79,6 +117,12 @@ router.put(
       if (tag) {
         newNote.tag = tag;
       }
+      if (visibility) {
+        newNote.visibility = visibility;
+      }
+      if (selectedUser) {
+        newNote.sharedWith = selectedUser;
+      }
 
       // Find current note by id
       // checking on note with req.params.id is available
@@ -86,8 +130,13 @@ router.put(
       if (!note) {
         return res.status(404).send("Not found");
       }
-
-      if (note.user.toString() !== req.user.id) {
+      const me = await User.findById(req.user.id);
+      if (
+        !(
+          note.user.toString() === req.user.id ||
+          note.sharedWith.includes(me.email)
+        )
+      ) {
         // is logged user's id is corresponding note's user's id
         return res.status(401).send("Not allowed");
       }
@@ -118,7 +167,14 @@ router.delete("/delete/:id", fetchUser, async (req, res) => {
     }
 
     // is logged user's id is corresponding note's user's id
-    if (note.user.toString() !== req.user.id) {
+    const me = await User.findById(req.user.id);
+    if (
+      !(
+        note.user.toString() === req.user.id ||
+        note.sharedWith.includes(me.email)
+      )
+    ) {
+      // is logged user's id is corresponding note's user's id
       return res.status(401).send("Not allowed");
     }
 

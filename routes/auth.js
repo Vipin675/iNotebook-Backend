@@ -9,7 +9,7 @@ const JWT_TOKEN = "this_is_my_JWT_TOKEN";
 const User = require("../model/User");
 const fetchUser = require("../middleware/fetchUser");
 
-// CREATE USER on "http://localhost:3000/api/auth/new-user"
+// CREATE USER on "http://localhost:5000/api/auth/new-user"
 router.post(
   "/new-user",
   [
@@ -27,12 +27,10 @@ router.post(
     try {
       let user = await User.findOne({ email: req.body.email });
       if (user) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "User with this email is already exists",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "User with this email is already exists",
+        });
       }
 
       const salt = await bcrypt.genSalt(10);
@@ -63,7 +61,7 @@ router.post(
   }
 );
 
-//Authenticate user http://localhost:3000/api/auth/login
+//Authenticate user http://localhost:5000/api/auth/login
 router.post(
   "/login",
   [

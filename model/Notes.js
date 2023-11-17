@@ -19,6 +19,16 @@ const notesSchema = new Schema({
     type: String,
     default: "General",
   },
+  visibility: {
+    type: String,
+    enum: ["public", "private", "shared"],
+    default: "public",
+  },
+  sharedWith: [
+    {
+      type: String,
+    },
+  ],
   date: {
     type: Date,
     default: Date.now,
